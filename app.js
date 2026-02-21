@@ -25,6 +25,7 @@ const allowedOrigins = [
   'http://localhost:5173',
   'https://devpost-a-ifrontend.vercel.app',
   'https://devpost-a-ifrontend-gjn2iy8dz.vercel.app/',
+  'https://devpost-a-ifrontend.vercel.app/dashboard',
   process.env.CLIENT_URL
 ].filter(Boolean);
 
