@@ -8,6 +8,7 @@ const createTransporter = async () => {
       host: process.env.EMAIL_HOST,
       port: process.env.EMAIL_PORT || 587,
       secure: process.env.EMAIL_SECURE === 'true',
+      family: 4, // Force IPv4 (Railway does not support IPv6)
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD

@@ -82,28 +82,16 @@ export const handleLinkedInCallback = async (req, res) => {
       return res.redirect(`${CLIENT_URL}/dashboard?error=user_not_found`);
     }
 
-    // SECURITY: Prevent LinkedIn account reuse on free plans
-    // Check if this LinkedIn account is already connected to another user
+    // SECURITY: Prevent LinkedIn account reuse across multiple DevPost accounts
+    // One LinkedIn account can only be connected to ONE DevPost account
     const existingLinkedInUser = await User.findOne({
       linkedinUserId: profileData.sub,
       _id: { $ne: user._id } // Exclude current user
     });
 
     if (existingLinkedInUser) {
-      // If THIS user is on free plan, block the connection (prevents loophole)
-      if (user.plan === 'free') {
-        console.log(`🚫 LinkedIn reuse blocked: User ${user._id} (free plan) tried to connect LinkedIn already used by user ${existingLinkedInUser._id}`);
-        return res.redirect(`${CLIENT_URL}/dashboard?error=linkedin_already_used`);
-      }
-      
-      // If THIS user is on paid plan, allow but disconnect from previous user
-      // (Paid users can "take over" a LinkedIn account)
-      console.log(`⚠️ LinkedIn takeover: User ${user._id} (${user.plan} plan) taking LinkedIn from user ${existingLinkedInUser._id}`);
-      existingLinkedInUser.linkedinAccessToken = null;
-      existingLinkedInUser.linkedinRefreshToken = null;
-      existingLinkedInUser.linkedinTokenExpiry = null;
-      existingLinkedInUser.linkedinUserId = null;
-      await existingLinkedInUser.save();
+      console.log(`🚫 LinkedIn reuse blocked: User ${user._id} tried to connect LinkedIn already used by user ${existingLinkedInUser._id}`);
+      return res.redirect(`${CLIENT_URL}/dashboard?error=linkedin_already_used`);
     }
 
     user.linkedinAccessToken = tokenData.access_token;
