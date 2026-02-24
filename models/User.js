@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema({
   },
   plan: {
     type: String,
-    enum: ['free', 'pro'],
+    enum: ['free', 'starter', 'pro'],
     default: 'free'
   },
   postsGenerated: {
@@ -36,6 +36,28 @@ const userSchema = new mongoose.Schema({
   lastResetDate: {
     type: Date,
     default: Date.now
+  },
+  // Lemon Squeezy subscription fields
+  lemonSqueezyCustomerId: {
+    type: String,
+    default: null
+  },
+  lemonSqueezySubscriptionId: {
+    type: String,
+    default: null
+  },
+  subscriptionStatus: {
+    type: String,
+    enum: ['active', 'cancelled', 'expired', 'on_trial', 'paused', 'past_due', null],
+    default: null
+  },
+  subscriptionEndDate: {
+    type: Date,
+    default: null
+  },
+  subscriptionVariantId: {
+    type: String,
+    default: null
   },
   linkedinAccessToken: {
     type: String,
@@ -56,6 +78,22 @@ const userSchema = new mongoose.Schema({
   autoPostToLinkedIn: {
     type: Boolean,
     default: false
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  emailVerificationOTP: {
+    type: String,
+    default: null
+  },
+  emailVerificationExpires: {
+    type: Date,
+    default: null
+  },
+  otpAttempts: {
+    type: Number,
+    default: 0
   },
   createdAt: {
     type: Date,
@@ -81,8 +119,9 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Check if user can generate post (for free tier)
+// Check if user can generate post based on plan limits
 userSchema.methods.canGeneratePost = function() {
+  // Pro plan has unlimited posts
   if (this.plan === 'pro') return true;
   
   // Reset monthly count if it's a new month
@@ -94,7 +133,14 @@ userSchema.methods.canGeneratePost = function() {
     this.lastResetDate = now;
   }
   
-  return this.monthlyPostsCount < 5;
+  // Check limits based on plan
+  const limits = {
+    free: 5,
+    starter: 15
+  };
+  
+  const limit = limits[this.plan] || 5; // Default to 5 if plan not found
+  return this.monthlyPostsCount < limit;
 };
 
 const User = mongoose.model('User', userSchema);

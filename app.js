@@ -9,6 +9,7 @@ import compression from 'compression';
 import authRoutes from './routes/authRoutes.js';
 import postRoutes from './routes/postRoutes.js';
 import linkedinRoutes from './routes/linkedinRoutes.js';
+import lemonsqueezyRoutes from './routes/lemonsqueezyRoutes.js';
 
 dotenv.config();
 
@@ -67,14 +68,23 @@ if (isProduction) {
 // Compression
 app.use(compression());
 
+// Lemon Squeezy webhook route (BEFORE body parser to access raw body)
+app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }), async (req, res, next) => {
+  // Convert raw body to JSON for the controller
+  req.body = JSON.parse(req.body.toString());
+  next();
+}, (await import('./controllers/lemonsqueezyController.js')).handleWebhook);
+
 // Body Parser
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Database Connection
 const mongoOptions = {
-  serverSelectionTimeoutMS: 5000,
+  serverSelectionTimeoutMS: 30000, // 30 seconds (increased from 5)
   socketTimeoutMS: 45000,
+  connectTimeoutMS: 30000, // Add connection timeout
+  family: 4 // Force IPv4 (sometimes faster)
 };
 
 mongoose.connect(process.env.MONGODB_URI, mongoOptions)
@@ -97,6 +107,7 @@ mongoose.connection.on('disconnected', () => {
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/linkedin', linkedinRoutes);
+app.use('/api/lemonsqueezy', lemonsqueezyRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

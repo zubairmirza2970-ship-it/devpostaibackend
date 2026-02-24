@@ -1,4 +1,6 @@
 import User from '../models/User.js';
+import { fetchLinkedInPosts } from '../services/linkedinService.js';
+import axios from 'axios';
 
 // @desc    Initiate LinkedIn OAuth
 // @route   GET /api/linkedin/auth
@@ -45,41 +47,63 @@ export const handleLinkedInCallback = async (req, res) => {
     }
 
     // Exchange code for access token
-    const tokenResponse = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
+    const tokenResponse = await axios.post('https://www.linkedin.com/oauth/v2/accessToken', 
+      new URLSearchParams({
         grant_type: 'authorization_code',
         code,
         client_id: LINKEDIN_CLIENT_ID,
         client_secret: LINKEDIN_CLIENT_SECRET,
         redirect_uri: LINKEDIN_REDIRECT_URI
-      })
-    });
+      }).toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        timeout: 30000
+      }
+    );
 
-    const tokenData = await tokenResponse.json();
-
-    if (!tokenResponse.ok) {
-      console.error('LinkedIn token error:', tokenData);
-      return res.redirect(`${CLIENT_URL}/dashboard?error=token_failed`);
-    }
+    const tokenData = tokenResponse.data;
 
     // Get LinkedIn user profile
-    const profileResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
+    const profileResponse = await axios.get('https://api.linkedin.com/v2/userinfo', {
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`
-      }
+      },
+      timeout: 30000
     });
 
-    const profileData = await profileResponse.json();
+    const profileData = profileResponse.data;
 
     // Update user with LinkedIn tokens
     const user = await User.findById(state);
     
     if (!user) {
       return res.redirect(`${CLIENT_URL}/dashboard?error=user_not_found`);
+    }
+
+    // SECURITY: Prevent LinkedIn account reuse on free plans
+    // Check if this LinkedIn account is already connected to another user
+    const existingLinkedInUser = await User.findOne({
+      linkedinUserId: profileData.sub,
+      _id: { $ne: user._id } // Exclude current user
+    });
+
+    if (existingLinkedInUser) {
+      // If THIS user is on free plan, block the connection (prevents loophole)
+      if (user.plan === 'free') {
+        console.log(`🚫 LinkedIn reuse blocked: User ${user._id} (free plan) tried to connect LinkedIn already used by user ${existingLinkedInUser._id}`);
+        return res.redirect(`${CLIENT_URL}/dashboard?error=linkedin_already_used`);
+      }
+      
+      // If THIS user is on paid plan, allow but disconnect from previous user
+      // (Paid users can "take over" a LinkedIn account)
+      console.log(`⚠️ LinkedIn takeover: User ${user._id} (${user.plan} plan) taking LinkedIn from user ${existingLinkedInUser._id}`);
+      existingLinkedInUser.linkedinAccessToken = null;
+      existingLinkedInUser.linkedinRefreshToken = null;
+      existingLinkedInUser.linkedinTokenExpiry = null;
+      existingLinkedInUser.linkedinUserId = null;
+      await existingLinkedInUser.save();
     }
 
     user.linkedinAccessToken = tokenData.access_token;
@@ -171,24 +195,22 @@ export const refreshLinkedInToken = async (userId) => {
       throw new Error('No refresh token available');
     }
 
-    const tokenResponse = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
+    const tokenResponse = await axios.post('https://www.linkedin.com/oauth/v2/accessToken',
+      new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: user.linkedinRefreshToken,
         client_id: LINKEDIN_CLIENT_ID,
         client_secret: LINKEDIN_CLIENT_SECRET
-      })
-    });
+      }).toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        timeout: 30000
+      }
+    );
 
-    const tokenData = await tokenResponse.json();
-
-    if (!tokenResponse.ok) {
-      throw new Error('Failed to refresh token');
-    }
+    const tokenData = tokenResponse.data;
 
     user.linkedinAccessToken = tokenData.access_token;
     user.linkedinTokenExpiry = new Date(Date.now() + tokenData.expires_in * 1000);
@@ -198,5 +220,60 @@ export const refreshLinkedInToken = async (userId) => {
   } catch (error) {
     console.error('Token refresh error:', error);
     throw error;
+  }
+};
+
+// @desc    Get LinkedIn posts
+// @route   GET /api/linkedin/posts
+// @access  Private
+export const getLinkedInPosts = async (req, res) => {
+  try {
+    const count = parseInt(req.query.count) || 10;
+    const result = await fetchLinkedInPosts(req.user._id, count);
+
+    res.json({
+      success: true,
+      count: result.count,
+      posts: result.posts
+    });
+  } catch (error) {
+    console.error('Error fetching LinkedIn posts:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error fetching LinkedIn posts'
+    });
+  }
+};
+
+// @desc    Sync LinkedIn posts (fetch latest posts from LinkedIn)
+// @route   POST /api/linkedin/sync-posts
+// @access  Private
+export const syncLinkedInPosts = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user.linkedinAccessToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please connect your LinkedIn account first'
+      });
+    }
+
+    const count = parseInt(req.body.count) || 20;
+    const result = await fetchLinkedInPosts(req.user._id, count);
+
+    res.json({
+      success: true,
+      message: 'LinkedIn posts synced successfully',
+      count: result.count,
+      posts: result.posts,
+      syncedAt: new Date()
+    });
+  } catch (error) {
+    console.error('Error syncing LinkedIn posts:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error syncing LinkedIn posts'
+    });
   }
 };

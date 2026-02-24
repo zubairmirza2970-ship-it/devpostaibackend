@@ -3,7 +3,9 @@ import {
   initiateLinkedInAuth,
   handleLinkedInCallback,
   disconnectLinkedIn,
-  toggleAutoPost
+  toggleAutoPost,
+  getLinkedInPosts,
+  syncLinkedInPosts
 } from '../controllers/linkedinController.js';
 import { protect } from '../middleware/auth.js';
 
@@ -16,5 +18,9 @@ router.get('/callback', handleLinkedInCallback);
 // Management routes (all protected)
 router.post('/disconnect', protect, disconnectLinkedIn);
 router.post('/toggle-auto-post', protect, toggleAutoPost);
+
+// Posts routes
+router.get('/posts', protect, getLinkedInPosts);
+router.post('/sync-posts', protect, syncLinkedInPosts);
 
 export default router;
