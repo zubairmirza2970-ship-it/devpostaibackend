@@ -5,7 +5,7 @@
   "main": "app.js",
   "type": "module",
   "scripts": {
-    "start": "NODE_ENV=production node app.js",
+    "start": "NODE_ENV=production node --dns-result-order=ipv4first app.js",
     "dev": "NODE_ENV=development nodemon app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

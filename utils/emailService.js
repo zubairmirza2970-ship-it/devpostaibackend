@@ -1,8 +1,6 @@
 import nodemailer from 'nodemailer';
-import dns from 'dns';
 
-// Force IPv4 DNS resolution - Railway does not support IPv6 outbound
-dns.setDefaultResultOrder('ipv4first');
+// Note: IPv4 DNS is forced via --dns-result-order=ipv4first in package.json start script
 
 // Create transporter
 const createTransporter = async () => {

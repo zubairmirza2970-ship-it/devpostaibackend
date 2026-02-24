@@ -16,6 +16,11 @@ dotenv.config();
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Trust Railway's proxy (fixes rate-limit X-Forwarded-For warning)
+if (isProduction) {
+  app.set('trust proxy', 1);
+}
+
 // Security Middleware
 app.use(helmet());
 
