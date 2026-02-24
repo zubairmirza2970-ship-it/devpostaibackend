@@ -62,7 +62,8 @@ export const createCheckoutSession = async (req, res) => {
           }
         },
         productOptions: {
-          enabledVariants: [parseInt(variantId)]
+          enabledVariants: [parseInt(variantId)],
+          redirectUrl: `${process.env.CLIENT_URL || 'https://devpost-a-ifrontend.vercel.app'}/dashboard?payment=success`
         },
         checkoutOptions: {
           embed: false,

@@ -114,7 +114,7 @@ export const generatePost = async (req, res) => {
         success: true,
         data: post,
         linkedinPostUrl,
-        remaining: user.plan === 'free' ? (5 - user.monthlyPostsCount) : 'unlimited'
+        remaining: ({ free: 5, starter: 20, pro: 50 }[user.plan] || 5) - user.monthlyPostsCount
       });
       
     } catch (fetchError) {
@@ -283,8 +283,8 @@ export const getStats = async (req, res) => {
         plan: user.plan,
         totalPosts,
         monthlyPostsUsed: user.monthlyPostsCount,
-        monthlyPostsLimit: user.plan === 'free' ? 5 : 'unlimited',
-        remaining: user.plan === 'free' ? (5 - user.monthlyPostsCount) : 'unlimited',
+        monthlyPostsLimit: { free: 5, starter: 20, pro: 50 }[user.plan] || 5,
+        remaining: ({ free: 5, starter: 20, pro: 50 }[user.plan] || 5) - user.monthlyPostsCount,
         linkedinConnected: !!user.linkedinAccessToken,
         autoPostToLinkedIn: user.autoPostToLinkedIn
       }

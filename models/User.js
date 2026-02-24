@@ -136,10 +136,11 @@ userSchema.methods.canGeneratePost = function() {
   // Check limits based on plan
   const limits = {
     free: 5,
-    starter: 15
+    starter: 20,
+    pro: 50
   };
   
-  const limit = limits[this.plan] || 5; // Default to 5 if plan not found
+  const limit = limits[this.plan] || 5;
   return this.monthlyPostsCount < limit;
 };
 
