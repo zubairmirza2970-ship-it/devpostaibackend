@@ -1,4 +1,8 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// Force IPv4 DNS resolution - Railway does not support IPv6 outbound
+dns.setDefaultResultOrder('ipv4first');
 
 // Create transporter
 const createTransporter = async () => {
@@ -6,12 +10,14 @@ const createTransporter = async () => {
   if (process.env.NODE_ENV === 'production' && process.env.EMAIL_HOST) {
     return nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT || 587,
+      port: parseInt(process.env.EMAIL_PORT) || 587,
       secure: process.env.EMAIL_SECURE === 'true',
-      family: 4, // Force IPv4 (Railway does not support IPv6)
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD
+      },
+      tls: {
+        rejectUnauthorized: false
       }
     });
   } else {
