@@ -64,6 +64,7 @@ export const register = async (req, res) => {
       
       res.status(200).json({
         success: true,
+        requiresVerification: true,
         message: 'Verification code sent! Please check your email and enter the 6-digit code.',
         data: {
           email,
