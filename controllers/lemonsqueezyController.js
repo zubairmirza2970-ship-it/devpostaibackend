@@ -182,19 +182,19 @@ export const handleWebhook = async (req, res) => {
       return res.status(500).json({ error: 'Webhook not configured' });
     }
 
-    // Verify webhook signature
+    // Verify webhook signature using raw body buffer
     const signature = req.headers['x-signature'];
-    const body = JSON.stringify(req.body);
-    
+    const rawBody = req.body; // Buffer from express.raw()
+
     const hmac = crypto.createHmac('sha256', secret);
-    const digest = hmac.update(body).digest('hex');
+    const digest = hmac.update(rawBody).digest('hex');
 
     if (signature !== digest) {
       console.error('Invalid webhook signature');
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
-    const event = req.body;
+    const event = JSON.parse(rawBody.toString());
     const eventName = event.meta.event_name;
 
     console.log('Received webhook:', eventName);
