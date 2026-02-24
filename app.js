@@ -69,11 +69,11 @@ if (isProduction) {
 app.use(compression());
 
 // Lemon Squeezy webhook route (BEFORE body parser to access raw body)
-app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }), async (req, res, next) => {
-  // Convert raw body to JSON for the controller
-  req.body = JSON.parse(req.body.toString());
-  next();
-}, (await import('./controllers/lemonsqueezyController.js')).handleWebhook);
+app.post(
+  '/api/lemonsqueezy/webhook',
+  express.raw({ type: 'application/json' }),
+  (await import('./controllers/lemonsqueezyController.js')).handleWebhook
+);
 
 // Body Parser
 app.use(express.json({ limit: '10mb' }));
