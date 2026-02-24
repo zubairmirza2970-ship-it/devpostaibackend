@@ -90,8 +90,24 @@ export const handleLinkedInCallback = async (req, res) => {
     });
 
     if (existingLinkedInUser) {
-      console.log(`🚫 LinkedIn reuse blocked: User ${user._id} tried to connect LinkedIn already used by user ${existingLinkedInUser._id}`);
-      return res.redirect(`${CLIENT_URL}/dashboard?error=linkedin_already_used`);
+      const hasActiveToken = existingLinkedInUser.linkedinAccessToken &&
+        existingLinkedInUser.linkedinTokenExpiry &&
+        new Date(existingLinkedInUser.linkedinTokenExpiry) > new Date();
+
+      if (hasActiveToken) {
+        // Another account has a live connection — block
+        console.log(`🚫 LinkedIn reuse blocked: User ${user._id} tried to connect LinkedIn already used by user ${existingLinkedInUser._id}`);
+        return res.redirect(`${CLIENT_URL}/dashboard?error=linkedin_already_used`);
+      } else {
+        // The other account's token is expired/missing — clear it and allow this user to claim it
+        console.log(`🔄 LinkedIn claim: clearing stale LinkedIn from user ${existingLinkedInUser._id} so user ${user._id} can connect`);
+        existingLinkedInUser.linkedinAccessToken = null;
+        existingLinkedInUser.linkedinRefreshToken = null;
+        existingLinkedInUser.linkedinTokenExpiry = null;
+        existingLinkedInUser.linkedinUserId = null;
+        existingLinkedInUser.autoPostToLinkedIn = false;
+        await existingLinkedInUser.save();
+      }
     }
 
     user.linkedinAccessToken = tokenData.access_token;
